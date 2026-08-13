@@ -66,6 +66,9 @@ Expansion — Phase 1: website, payment, COD, shipping, GST. Phase 2: Android/iO
 - Razorpay integration is REAL (order create → Checkout.js → server-side signature verification → webhook),
   but it stays disabled until `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are filled in `/app/backend/.env`.
   Until then the checkout auto-selects COD and the online option is disabled.
+- Signature and webhook handling were proven with dummy keys (see
+  `backend/tests/razorpay_signature_check.py`, 6/6 pass): only correctly signed payments can mark an order paid.
+  A live test payment (UPI + card) is still pending the owner's real test keys.
 
 ## Backlog (prioritized)
 P0
@@ -85,6 +88,6 @@ P2
 - Daily DB backup automation, order export (CSV) for accounting.
 
 ## Next tasks
-1. Wire a real payment gateway and replace the demo online-payment path.
+1. Owner to provide Razorpay test keys → fill `.env`, register the webhook, run a live UPI + card test payment.
 2. Generate a downloadable GST invoice PDF per order.
-3. Transactional email/WhatsApp notifications for order + status updates.
+3. Transactional email/WhatsApp notifications for order, cancellation and status updates.

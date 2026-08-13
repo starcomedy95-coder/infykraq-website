@@ -135,9 +135,13 @@ class TestCustomerCancel:
 
 
 class TestStockRestoration:
-    def test_stock_restored_on_cancel(self, customer):
-        p = _pick_product_with_stock(min_stock=5)
-        pid = p["id"]
+    def test_stock_restored_on_cancel(self, customer, admin):
+        # dedicated product so parallel tests ordering other products cannot skew the counts
+        r = admin.post(f"{API}/admin/products", json={
+            "title": "TEST_StockRestoreProd", "category": "footwear", "price": 500, "mrp": 900,
+            "stock": 10, "images": ["https://x/y.jpg"], "attributes": {}, "tags": ["test"]})
+        assert r.status_code == 200, r.text
+        pid = r.json()["id"]
         original = _get_stock(pid)
         order = _place_cod_order(customer, pid, qty=2)
         after_order = _get_stock(pid)
@@ -146,6 +150,7 @@ class TestStockRestoration:
         r = customer.post(f"{API}/orders/{order['id']}/cancel")
         assert r.status_code == 200
         after_cancel = _get_stock(pid)
+        admin.delete(f"{API}/admin/products/{pid}")
         assert after_cancel == original, f"stock not restored: {after_cancel} vs {original}"
 
     def test_adjust_stock_clamps_at_zero(self, admin):

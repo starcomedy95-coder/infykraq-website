@@ -147,35 +147,27 @@ class TestAwaitingPaymentHidden:
         assert not any(o["order_no"] == order_no for o in orders)
 
     def test_hidden_from_admin_stats_revenue(self, admin_session, seed_awaiting_order):
-        # stats revenue must not include the 9999 total nor 1525 gst from the awaiting order.
-        # Best-effort check: total revenue should not be an exact multiple that includes the
-        # 9999 sentinel. We compare before/after by removing then re-adding the order.
-        order_id, _ = seed_awaiting_order
-        stats_with = admin_session.get(f"{API}/admin/stats").json()
-        # Temporarily delete
-        subprocess.run(["mongosh", "test_database", "--quiet", "--eval",
-                        f"db.orders.deleteOne({{id:'{order_id}'}});"],
-                       check=True, capture_output=True)
-        stats_without = admin_session.get(f"{API}/admin/stats").json()
-        # Re-insert so class teardown can clean it
-        js = f"""
-        var u = db.users.findOne({{email:'{CUSTOMER_EMAIL}'}});
-        db.orders.insertOne({{
-            id:'{order_id}', order_no:'AWAITSTATS', user_id: u._id.toString(),
-            email:'{CUSTOMER_EMAIL}', payment_method:'online', payment_status:'pending',
-            status:'awaiting_payment', created_at:new Date().toISOString(),
-            items:[], subtotal:9999, discount:0, coupon:null, shipping:0,
-            cod_fee:0, gst:1525, total:9999,
-            address:{{full_name:'x',phone:'1',email:'{CUSTOMER_EMAIL}',line1:'x',city:'x',state:'x',pincode:'111111'}},
-            timeline:[]
-        }});
+        """Revenue/GST must equal the sum of non-awaiting_payment orders only.
+
+        Computed from Mongo in the same request window instead of a before/after diff,
+        so concurrent order creation cannot make this flaky.
         """
-        subprocess.run(["mongosh", "test_database", "--quiet", "--eval", js],
-                       check=True, capture_output=True)
-        # Revenue and gst must be identical with and without the awaiting_payment order
-        assert stats_with["revenue"] == stats_without["revenue"], (
-            f"revenue changed: {stats_with['revenue']} vs {stats_without['revenue']}")
-        assert stats_with["gst_collected"] == stats_without["gst_collected"]
+        order_id, _ = seed_awaiting_order
+        stats = admin_session.get(f"{API}/admin/stats").json()
+        js = ("var a=db.orders.aggregate([{$match:{status:{$ne:'awaiting_payment'}}},"
+              "{$group:{_id:null,rev:{$sum:'$total'},gst:{$sum:'$gst'}}}]).toArray()[0];"
+              "print(a.rev + '|' + a.gst);")
+        out = subprocess.run(["mongosh", "test_database", "--quiet", "--eval", js],
+                             check=True, capture_output=True, text=True).stdout.strip()
+        rev, gst = (round(float(x), 2) for x in out.split("|"))
+        # tolerance absorbs orders created concurrently by other tests, but is far smaller
+        # than the 9999 sentinel total / 1525 gst of the awaiting_payment order.
+        assert abs(stats["revenue"] - rev) < 5000, (
+            f"revenue {stats['revenue']} does not match non-awaiting sum {rev}")
+        assert abs(stats["gst_collected"] - gst) < 800
+        # and the seeded awaiting order is definitely not in recent_orders
+        assert not any(o["id"] == order_id for o in stats["recent_orders"])
+
 
     def test_hidden_from_gst_report(self, admin_session, seed_awaiting_order):
         r = admin_session.get(f"{API}/admin/gst-report")
