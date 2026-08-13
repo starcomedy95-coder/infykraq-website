@@ -1,0 +1,122 @@
+{
+  "project_name": "INFYKRAQ",
+  "app_type": "Multi-Category E-Commerce",
+  "target_market": "India",
+  "theme": "light",
+  "design_philosophy": "Premium, Fast, Mobile-First. The design relies on 'Archetype 5: Luxury (Light Variant)'. We avoid chaotic bazaars and instead present an editorial, curated storefront. It utilizes stark contrasts, elegant serif typography for storytelling, and generous negative space to let multi-category products breathe.",
+  "typography": {
+    "headings": {
+      "font_family": "Playfair Display",
+      "weights": ["400", "700", "900"],
+      "usage": "Use tight letter-spacing (tracking-tighter) for large headings to maintain editorial elegance. Use for Product Titles, Section Headers, and Hero typography."
+    },
+    "body": {
+      "font_family": "Manrope",
+      "weights": ["400", "500", "600"],
+      "usage": "Highly legible, geometric sans-serif for mobile readability. Use for pricing, product descriptions, pincode checks, and functional UI elements."
+    },
+    "labels_overlines": "Uppercase, tiny text (text-xs), very wide tracking (tracking-[0.2em]) using Manrope."
+  },
+  "colors": {
+    "background": "#FDFBF7",
+    "foreground": "#18181B",
+    "primary": {
+      "DEFAULT": "#022C22",
+      "foreground": "#FFFFFF"
+    },
+    "secondary": {
+      "DEFAULT": "#F3F1EC",
+      "foreground": "#022C22"
+    },
+    "accent": {
+      "DEFAULT": "#C5A880",
+      "foreground": "#18181B"
+    },
+    "border": "#E5E1D8",
+    "muted": "#A19D94",
+    "destructive": "#991B1B",
+    "notes": "Background is 'Warm Pearl' (not pure white) to reduce eye strain and feel expensive. Primary is 'Deep Emerald' (culturally signifies prosperity/wealth in India, avoids generic blue). Accent is 'Champagne Gold' for flash sales/badges."
+  },
+  "visual_enhancers": {
+    "surfaces": {
+      "header": "Crystal Glassmorphism: backdrop-blur-xl bg-[#FDFBF7]/70 with a delicate 1px border-b border-[#E5E1D8]. Nav MUST be sticky with z-50.",
+      "product_cards": "Solid Pure White bg-[#FFFFFF] against the Pearl background. Flat, crisp 1px border. On hover, apply subtle lift (-translate-y-1) and diffuse shadow (shadow-xl shadow-black/5).",
+      "pdp_bottom_bar": "Mobile only: Fixed bottom bar bg-white/95 backdrop-blur-md border-t with full-width 'Buy Now' button."
+    },
+    "borders": "Crisp 1px borders, subtle opacity (border-black/5 or border-[#E5E1D8]). Corners should be subtly rounded (rounded-md max 6px) to avoid looking childish.",
+    "shadows": "Ambient diffuse shadows. Do not use heavy box-shadows on cards by default, only on hover or for floating elements."
+  },
+  "layouts_and_grids": {
+    "homepage": "Bento Grid Mode A (Asymmetrical). Do not use standard equal grids. Mix 1 large hero banner, 2 square category highlights, and horizontal scrolling lists for 'New Arrivals'.",
+    "category_page": "Responsive Grid: grid-cols-2 (Mobile) to grid-cols-4 (Desktop). Sticky left sidebar for filters on Desktop. Horizontally scrollable filter pills on Mobile.",
+    "product_page": "Desktop: 2-column layout (Images sticky on left, Content scrolls on right). Mobile: Stacked. Images must support Pinch-Zoom. 'Pincode Check' must sit right above the Add to Cart button.",
+    "cart_checkout": "1-column narrow flow for focus. Order Summary sticky on right (Desktop). Highlight GST and Delivery transparently."
+  },
+  "components_strategy": {
+    "buttons": "Primary buttons (Buy Now, Checkout) must be solid Deep Emerald (#022C22) with text-white. Sharp styling (rounded-sm). Add hover:bg-[#064E3B] hover:scale-[1.02] transition-transform.",
+    "inputs": "Shadcn standard inputs but customized: bg-transparent, border-b-2 border-black/20 (no full borders) for a cleaner, editorial form look.",
+    "navigation": "Include search bar prominently. Desktop: Top-level categories visible. Mobile: Hamburger menu + horizontal scrollable sub-category chips just below header.",
+    "flash_sale": "Do not use loud red banners. Use Champagne Gold (#C5A880) background with Black text, elegant Mono-spaced countdown timer.",
+    "pincode_check": "Input group with 'Check' button inside. Success state shows green text 'Delivery by [Date]'. Error state shows red text."
+  },
+  "motion": {
+    "micro_interactions": "All interactive elements MUST have hover and active states. Use Framer Motion for page transitions.",
+    "image_galleries": "Smooth cross-fade or snap-scroll for product images.",
+    "loading": "No spinners. Use skeleton screens matching the exact layout of the content."
+  },
+  "accessibility": {
+    "contrast": "Deep Emerald on Pearl Background passes APCA effortlessly.",
+    "touch_targets": "Mobile-first: All buttons and links must be minimum 44x44px. 'Buy Now' must span full width on mobile.",
+    "testing": "All interactive elements must include data-testid (e.g., data-testid='pincode-input', data-testid='buy-now-btn')."
+  },
+  "media": {
+    "image_urls": {
+      "sandals": [
+        "https://images.unsplash.com/photo-1618615098938-84fc29796e76?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBzYW5kYWxzfGVufDB8fHx8MTc4NjU1MTQ3Nnww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1628375385879-1af64230c2e1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBzYW5kYWxzfGVufDB8fHx8MTc4NjU1MTQ3Nnww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1619510331283-a46c425e48bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHw0fHxsdXh1cnklMjBzYW5kYWxzfGVufDB8fHx8MTc4NjU1MTQ3Nnww&ixlib=rb-4.1.0&q=85"
+      ],
+      "watches": [
+        "https://images.unsplash.com/photo-1546868871-7041f2a55e12?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwyfHxwcmVtaXVtJTIwc21hcnQlMjB3YXRjaHxlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwzfHxwcmVtaXVtJTIwc21hcnQlMjB3YXRjaHxlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwc21hcnQlMjB3YXRjaHxlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85"
+      ],
+      "electronics": [
+        "https://images.unsplash.com/photo-1615655406736-b37c4fabf923?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxlbGVjdHJvbmljJTIwZ2FkZ2V0cyUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1620783770629-122b7f187703?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwzfHxlbGVjdHJvbmljJTIwZ2FkZ2V0cyUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1515940175183-6798529cb860?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHxlbGVjdHJvbmljJTIwZ2FkZ2V0cyUyMGFlc3RoZXRpY3xlbnwwfHx8fDE3ODY1NTE0NzZ8MA&ixlib=rb-4.1.0&q=85"
+      ],
+      "banners_heroes": [
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxsZWF0aGVyJTIwYmFnc3xlbnwwfHx8fDE3ODY1NTE4MTF8MA&ixlib=rb-4.1.0&q=85"
+      ]
+    },
+    "notes": "Hero banner images MUST use an overlay gradient to preserve text readability (bg-gradient-to-r from-black/60 to-transparent)."
+  },
+  "pdp_specific": {
+    "dynamic_attributes": "Size and Color pickers must be visual. Color pickers as hex circles with ring on active. Size pickers as bordered square pills.",
+    "pricing": "Show INR (₹). If discounted, show strikethrough MRP in muted gray right next to the bold active price.",
+    "return_policy": "Render as an accordion (Shadcn Accordion) or prominent icon-text lockups near 'Add to Cart'."
+  },
+  "instructions_to_main_agent": [
+    "Install required dependencies: yarn add @phosphor-icons/react framer-motion clsx tailwind-merge",
+    "Use Phosphor Icons (Duotone) for a high-end, premium aesthetic.",
+    "Create dynamic pages for Homepage, Category Layout, Product Details (PDP), Cart, Checkout, and Dashboard.",
+    "Never use raw HTML <select> or <input type='date'>. Use Shadcn components and customize their styles.",
+    "Ensure 'mobile-first' means horizontal scroll wrappers for categories on small screens instead of forcing everything into vertical stacks.",
+    "Maintain the Playfair + Manrope font setup. Inject them via Google Fonts in index.html or layout wrapper.",
+    "The header nav should be sticky and use Glassmorphism (Crystal variation, high saturation blur).",
+    "DO NOT output standard Vercel default look. Use the defined Warm Pearl background and Deep Emerald primary colors.",
+    "Implement the UI with pure functional frontend code (React components)."
+  ],
+  "universal_guidelines": [
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Use generous spacing (2-3x more than typical designs). Cramped designs look cheap.",
+    "Every interaction needs micro-animations (hover states, focus states).",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific properties.",
+    "NEVER use placeholder images; use the provided image URLs.",
+    "All interactive and key informational elements MUST include a data-testid attribute for robust testing.",
+    "DO NOT use complete transparent background in header, overlays, any surface that has content under it.",
+    "Use sonner for toast notifications (for Cart additions, Checkout success, etc)."
+  ]
+}
