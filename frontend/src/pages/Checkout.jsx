@@ -6,6 +6,7 @@ import { api, inr, apiError } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { Totals } from "@/pages/Cart";
+import { loadRazorpay } from "@/lib/razorpay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +19,17 @@ export default function Checkout() {
   const [t, setT] = useState(null);
   const [busy, setBusy] = useState(false);
   const coupon = localStorage.getItem("infykraq_coupon") || "";
+  const [payCfg, setPayCfg] = useState({ configured: true });
   const [form, setForm] = useState({
     full_name: "", phone: "", email: "", line1: "", line2: "", city: "", state: "", pincode: "",
   });
+
+  useEffect(() => {
+    api.get("/payments/config").then((r) => {
+      setPayCfg(r.data);
+      if (!r.data.configured) setMethod("cod");
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user) setForm((f) => ({ ...f, full_name: f.full_name || user.name, email: f.email || user.email, phone: f.phone || user.phone }));
@@ -47,19 +56,60 @@ export default function Checkout() {
     e.preventDefault();
     if (!user) { toast.error("Please login to place your order"); return nav("/login?next=/checkout"); }
     setBusy(true);
+    const body = { items: payload, address: form, coupon_code: coupon || null, payment_method: method };
     try {
-      const { data } = await api.post("/orders", {
-        items: payload, address: form, coupon_code: coupon || null, payment_method: method,
+      if (method === "cod") {
+        const { data } = await api.post("/orders", body);
+        finishOrder(data);
+        return;
+      }
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error("Could not load Razorpay. Check your connection.");
+      const { data: rz } = await api.post("/payments/razorpay/order", body);
+      const rzp = new window.Razorpay({
+        key: rz.key_id,
+        amount: rz.amount,
+        currency: rz.currency,
+        order_id: rz.razorpay_order_id,
+        name: "INFYKRAQ",
+        description: `Order ${rz.order_no}`,
+        prefill: rz.prefill,
+        theme: { color: "#022C22" },
+        handler: async (res) => {
+          try {
+            const { data } = await api.post("/payments/razorpay/verify", {
+              order_id: rz.order_id,
+              razorpay_order_id: res.razorpay_order_id,
+              razorpay_payment_id: res.razorpay_payment_id,
+              razorpay_signature: res.razorpay_signature,
+            });
+            finishOrder(data);
+          } catch (err) {
+            toast.error(apiError(err));
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: async () => {
+            await api.post(`/payments/razorpay/cancel/${rz.order_id}`).catch(() => {});
+            toast.error("Payment cancelled");
+            setBusy(false);
+          },
+        },
       });
-      clear();
-      localStorage.setItem("infykraq_coupon", "");
-      toast.success(`Order ${data.order_no} placed!`);
-      nav(`/order/${data.id}`);
+      rzp.on("payment.failed", () => { toast.error("Payment failed. Please try again."); setBusy(false); });
+      rzp.open();
     } catch (err) {
       toast.error(apiError(err));
-    } finally {
       setBusy(false);
     }
+  };
+
+  const finishOrder = (order) => {
+    clear();
+    localStorage.setItem("infykraq_coupon", "");
+    toast.success(`Order ${order.order_no} placed!`);
+    nav(`/order/${order.id}`);
   };
 
   return (
@@ -93,9 +143,12 @@ export default function Checkout() {
             <p className="overline mb-6">3 · Payment method</p>
             <div className="space-y-3">
               <PayOption
-                active={method === "online"} onClick={() => setMethod("online")} icon={CreditCard}
-                title="Pay online (UPI / Card / Netbanking)"
-                desc="Razorpay & PhonePe PG ready — currently in DEMO mode, no real charge."
+                active={method === "online"} onClick={() => payCfg.configured && setMethod("online")} icon={CreditCard}
+                title="Pay online — UPI / Card / Netbanking / Wallet"
+                desc={payCfg.configured
+                  ? "Secure payment via Razorpay. You'll pay before the order is confirmed."
+                  : "Unavailable — Razorpay keys are not configured yet. Please use COD."}
+                disabled={!payCfg.configured}
                 testid="pay-online"
               />
               <PayOption
@@ -126,7 +179,7 @@ export default function Checkout() {
             </div>
             {t && <Totals t={t} payment={method} />}
             <Button type="submit" disabled={busy} className="btn-emerald w-full h-12 mt-6 text-xs tracking-widest" data-testid="place-order-btn">
-              {busy ? "PLACING ORDER..." : method === "cod" ? "PLACE COD ORDER" : "PAY & PLACE ORDER"}
+              {busy ? "PROCESSING..." : method === "cod" ? "PLACE COD ORDER" : `PAY ${t ? inr(t.total) : ""} SECURELY`}
             </Button>
           </div>
         </div>
@@ -142,10 +195,10 @@ const Field = ({ label, testid, ...rest }) => (
   </div>
 );
 
-const PayOption = ({ active, onClick, icon: Icon, title, desc, testid }) => (
+const PayOption = ({ active, onClick, icon: Icon, title, desc, testid, disabled }) => (
   <button
-    type="button" onClick={onClick} data-testid={testid}
-    className={`w-full text-left flex gap-4 p-4 border rounded-sm transition-colors ${active ? "border-primary bg-secondary" : "border-border hover:border-primary"}`}
+    type="button" onClick={onClick} data-testid={testid} disabled={disabled}
+    className={`w-full text-left flex gap-4 p-4 border rounded-sm transition-colors ${disabled ? "border-border opacity-50 cursor-not-allowed" : active ? "border-primary bg-secondary" : "border-border hover:border-primary"}`}
   >
     <Icon size={18} className="mt-0.5 text-accent shrink-0" />
     <span>

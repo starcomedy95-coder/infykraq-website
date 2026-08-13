@@ -48,18 +48,34 @@ Expansion — Phase 1: website, payment, COD, shipping, GST. Phase 2: Android/iO
 - 2026-06: JWT auth with bcrypt, admin seeding, role-based 403 on `/api/admin/*`.
 - 2026-06: Emergent-managed Google sign-in added alongside JWT (session exchange endpoint, callback route,
   "Continue with Google" on /login). Verified: 39/39 backend tests + all critical frontend flows pass.
+- 2026-06: Real Razorpay payments — `/api/payments/config`, order creation, Razorpay Checkout.js (UPI/card/
+  netbanking/wallet), server-side signature verification, cancel-on-dismiss, and a signed webhook for
+  payment.captured / payment.failed. Stock is decremented only after payment is verified. COD retained.
+  Awaiting the owner's Razorpay keys to run a live test payment.
+
+- 2026-06: Customer order cancellation before dispatch (`POST /api/orders/{id}/cancel`, allowed for
+  `confirmed`/`packed` only), stock restored, refund marked as `refund_pending` for paid orders, confirm dialog
+  on the order page and cancelled state shown in the account list. Verified by 11 new pytest cases
+  (60/60 backend total) plus the full browser cancel flow.
 
 ## MOCKED
-- Online payment gateway (Razorpay/PhonePe) — order marked paid without a real gateway.
 - Email/WhatsApp order notifications — server-side log only.
 - Invoice PDF — browser print dialog instead of a generated PDF.
 
+## Payments status (2026-06)
+- Razorpay integration is REAL (order create → Checkout.js → server-side signature verification → webhook),
+  but it stays disabled until `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are filled in `/app/backend/.env`.
+  Until then the checkout auto-selects COD and the online option is disabled.
+
 ## Backlog (prioritized)
 P0
-- Real Razorpay/PhonePe payment gateway with webhook verification.
+- Fill Razorpay keys in backend/.env and run a live test payment (UPI + card) end to end.
+- Register the Razorpay webhook URL `{backend}/api/payments/razorpay/webhook` and set RAZORPAY_WEBHOOK_SECRET.
 - Server-generated invoice PDF with GSTIN, HSN and place-of-supply.
 P1
-- Email/WhatsApp notifications on order placement and each status change.
+- Automatic Razorpay refund API call when a paid order is cancelled (today it is only marked `refund_pending`).
+- Soft-reserve stock for `awaiting_payment` orders so two buyers cannot race on the last unit.
+- Email/WhatsApp notifications on order placement, cancellation and each status change.
 - Product image uploads in admin (object storage) instead of URL pasting.
 - Address book on customer account + saved addresses at checkout.
 - Product video support on PDP (field already exists in the model).

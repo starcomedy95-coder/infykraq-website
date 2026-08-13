@@ -1,0 +1,42 @@
+{
+  "summary": "Regression + Razorpay-disabled testing after the payment refactor. Backend: 49/49 pytest cases pass (39 original + 10 new in /app/backend/tests/test_payments.py). All Razorpay endpoints correctly return 503 when keys empty, /api/orders rejects online with 400, COD orders still create with cod_fee=49 and inclusive GST, /payments/razorpay/verify requires auth (401) and returns 503 when unconfigured — no path can mark an order paid without a verified signature. A seeded fake awaiting_payment order was verified hidden from customer /api/orders and did NOT affect admin stats revenue/gst_collected nor /api/admin/gst-report; then cleaned up. Frontend Playwright checkout flow: /payments/config -> configured:false, COD auto-selected, place-order-btn reads 'PLACE COD ORDER', full COD order placed end-to-end (order URL /order/<id> reached, order-no rendered). Mobile 390px checkout has no horizontal overflow. Customer at /admin correctly sees 'Admin access required'. ONE REAL BUG FOUND: the pay-online PayOption on /checkout is NOT rendered disabled when Razorpay keys are empty — the user can still click it and it becomes visually selected, contradicting the spec requirement 'pay-online option is rendered disabled (cannot be selected)'. Checkout.jsx passes `disabled` prop to the PayOption component (line 197) but never sets it on the online option (line 145-150).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Checkout > PayOption(pay-online)",
+        "issue": "When /payments/config returns configured:false, the pay-online button should be disabled but is not. disabled_attr=None, disabled_prop=false, no opacity-50 class, and clicking it re-selects 'online' as the payment method. If the user then clicks 'PLACE ORDER' it will POST /api/payments/razorpay/order and get 503, surfacing a raw error toast instead of the intended graceful UX. Fix: pass `disabled={!payCfg.configured}` (and also add opacity/cursor styling driven by that prop) on the online PayOption in /app/frontend/src/pages/Checkout.jsx around lines 145-150.",
+        "selector": "[data-testid=\"pay-online\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_payments.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Checkout.jsx: pass `disabled={!payCfg.configured}` to the pay-online PayOption so it cannot be selected while Razorpay keys are empty. Currently only `method` is auto-set to 'cod', but the online button remains clickable and switches method back to 'online'.",
+    "(Nice-to-have) When payCfg.configured is false, replace the pay-online button's `desc` copy ('Razorpay & PhonePe PG ready — currently in DEMO mode, no real charge.') with something like 'Online payment coming soon — please use COD' to match the disabled state."
+  ],
+  "critical_code_review_comments": [
+    "server.py has grown to 750 lines — still above the 700-line split threshold flagged last iteration. Consider splitting payments/razorpay endpoints into routers/payments.py before adding refunds/PhonePe.",
+    "razorpay_client() raising HTTPException 503 doubles as both the API guard and the internal guard, which is convenient but means webhook() also 503s for missing key even when the outer check for missing secret already 503s — acceptable but coupled.",
+    "mark_order_paid decrements product stock; build_order for online orders (status=awaiting_payment) does NOT decrement stock; ensure this asymmetry is intentional so that oversell is prevented — if two users race an online payment for a low-stock item, both can enter awaiting_payment and both can be captured; consider soft-reserving stock at order creation.",
+    "razorpay_cancel does not push a timeline entry and does not release soft-reserved stock (see above).",
+    "PayOption in Checkout.jsx already supports a `disabled` prop but the parent never wires it for the online option — trivial fix, but shows the UI-state was not fully migrated when payment_config was added."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_payments.py"
+  ],
+  "success_rate": {"backend": "100% (49/49 pytest)", "frontend": "~95% (COD end-to-end + regressions pass; 1 UI bug on pay-online disabled state)"},
+  "test_credentials": "admin@infykraq.com / Admin@123, customer@infykraq.com / Test@123, coupons WELCOME10/FLAT200/INFY15, Razorpay keys intentionally empty",
+  "seed_data_creation": "One real COD order created for customer@infykraq.com via the Playwright checkout flow (order id 1c0107b5-3327-40ba-b833-6462c6569266). One fake status:awaiting_payment order seeded via mongosh and deleted at teardown. Newsletter TEST_ and register TEST_ users from backend_test.py runs.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two pytest files now live in /app/backend/tests/: backend_test.py (39 cases, general) and test_payments.py (10 cases, Razorpay-disabled + awaiting_payment regressions). Run: python -m pytest backend/tests/ -v. All 49 pass. Only outstanding item is the pay-online disabled state bug on /checkout. Once main agent applies `disabled={!payCfg.configured}` to the online PayOption, re-verify by: (1) load /checkout as customer with cart populated, (2) confirm [data-testid=pay-online] has disabled attribute set and opacity-50 class, (3) clicking it must NOT toggle method to 'online'. Razorpay real flow cannot be tested without live keys — do NOT attempt.",
+  "rca of the issue": "Bug: pay-online remains selectable on /checkout when Razorpay is unconfigured. RCA: Checkout.jsx useEffect reads /api/payments/config and correctly forces `setMethod('cod')` when configured=false, but the PayOption for online (lines 145-150) never receives a `disabled` prop, even though the PayOption component (line 195-206) accepts and honors it. Repro: open /checkout with cart items; observe COD is auto-active; click the 'Pay online' box — it becomes active with border-primary+bg-secondary. Mitigation: `<PayOption disabled={!payCfg.configured} ... testid='pay-online' />`. This is a 1-line frontend fix."
+}

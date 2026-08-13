@@ -1,0 +1,38 @@
+{
+  "summary": "Order cancellation feature end-to-end verification + regression pass. New pytest suite /app/backend/tests/test_cancellation.py added (11 cases, all pass) covering: customer cancel of confirmed and packed orders, cancel blocked once shipped/delivered (400 with dispatched/return message), double-cancel returns 400 'already cancelled', unauthenticated cancel 401, cross-customer cancel 404, admin can cancel any cancellable order with cancelled_by='admin', stock restoration on cancel (verified stock returns to original after qty=2 order), $max clamp on adjust_stock (started with 1, cancelled qty=5 → stock=6 not negative), paid order → payment_status becomes refund_pending. Timeline correctly gets 'cancelled' entry with cancelled_at/cancelled_by fields. Full backend regression: 60/60 pytest cases pass when run in isolation. When run together with test_payments, the pre-existing flaky test TestAwaitingPaymentHidden::test_hidden_from_admin_stats_revenue fails due to concurrent order creation (as documented — passes in isolation, confirmed). Frontend Playwright: (1) HIGH bug from iteration_2 (pay-online not disabled) IS FIXED — [data-testid=pay-online] now has disabled attr='' + opacity-50 + cursor-not-allowed classes, click is intercepted (TimeoutError from Playwright as expected), and method stays on COD (border-primary on pay-cod only). (2) Cancel flow on real confirmed order (IFQ2608134793): heading transitions from 'Order confirmed' → 'Order cancelled', cancelled-banner appears with copy 'This order was cancelled by you and will not be delivered', cancel-order-btn disappears. (3) Account listing shows CANCELLED badge. (4) Mobile 390px order page has no horizontal overflow. No new bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/orders/{id}/cancel", "issue": "cancel_order silently ignores payment_status if it was 'failed' or 'cancelled' — only 'paid' triggers refund_pending. Acceptable for spec but worth documenting."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_payments.py",
+    "/app/backend/tests/test_cancellation.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 785 lines — still above the 700-line split threshold flagged in iteration_1 and iteration_2. Cancellation logic + Razorpay endpoints should move to routers/orders.py and routers/payments.py.",
+    "adjust_stock uses aggregation pipeline with $max clamp — good. But the clamp is only defensive; there is no check that placing an online order (build_order with status=awaiting_payment) does NOT decrement stock, so an online payment race between two customers can both enter awaiting_payment on a 1-stock item and only the winner will succeed — the other will fail at mark_order_paid, but stock will already have dropped for one and the loser's order is orphaned in awaiting_payment. Consider soft-reserving stock at order creation (already flagged in iteration_2).",
+    "razorpay_cancel (modal dismiss) still does not push a timeline entry (flagged last iteration).",
+    "cancel_order does not distinguish 'shipped' from 'delivered' in the error message — both return the same generic 'dispatched/return' copy. Fine for UX but a delivered order technically cannot be refused at delivery.",
+    "cancel_order refund logic sets payment_status='refund_pending' but does not push a distinct timeline event or store any refund reference — admin has no audit trail beyond cancelled_at/cancelled_by."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cancellation.py"
+  ],
+  "success_rate": {"backend": "100% (60/60 when isolated; 59/60 concurrent due to known flaky admin-stats test that passes solo)", "frontend": "100% (pay-online disabled state fix verified; full cancel UI flow works; account badge + mobile checks pass)"},
+  "test_credentials": "admin@infykraq.com / Admin@123, customer@infykraq.com / Test@123",
+  "seed_data_creation": "One TEST_ClampProd product created and deleted; one TEST_CLAMP_* order inserted+deleted via mongosh; one TEST_PAID_* paid+confirmed order inserted+deleted via mongosh; one TEST_cancel_* customer registered (kept). Several real COD orders created during the customer-cancel test cases and left in DB (all now cancelled or shipped/delivered by the tests themselves). Order b1ffb8ca-eba0-4f12-ab94-11fa3d8e9cc8 was cancelled by the UI test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Cancellation feature is fully implemented and verified end-to-end. Three pytest files now under /app/backend/tests/: backend_test.py (39), test_payments.py (10), test_cancellation.py (11) = 60 total. Run: `REACT_APP_BACKEND_URL=https://premium-ecommerce-126.preview.emergentagent.com python -m pytest backend/tests/ -v`. The one flaky test (test_hidden_from_admin_stats_revenue) still needs isolation to be reliable — main agent should consider making that revenue calculation deterministic by scoping to a specific user/order-no filter instead of the global sum. iteration_2's HIGH bug (pay-online disabled) is FIXED. No open bugs. The env var REACT_APP_BACKEND_URL must be exported before running pytest — the tests fall back to a hardcoded default in the file but that violates the 'no hardcoded URL' rule; consider removing the fallback in a future cleanup.",
+  "rca of the issue": "N/A — no new bugs. Prior HIGH bug (pay-online not disabled) verified fixed at Checkout.jsx:151 (disabled={!payCfg.configured}) and PayOption:200-201 (disabled attr + opacity-50 cursor-not-allowed class). Confirmed via Playwright: disabled attribute present, opacity-50 applied, click times out (intercepted), method stays 'cod'."
+}

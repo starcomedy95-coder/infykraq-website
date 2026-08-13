@@ -30,7 +30,7 @@ export default function Account() {
               </div>
               <div className="text-right">
                 <p className="font-mono-num font-semibold">{inr(o.total)}</p>
-                <span className="text-[10px] uppercase tracking-widest bg-secondary px-2 py-1 rounded-sm inline-block mt-1">{o.status}</span>
+                <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm inline-block mt-1 ${o.status === "cancelled" ? "bg-destructive/10 text-destructive" : "bg-secondary"}`}>{o.status}</span>
               </div>
             </div>
           </Link>

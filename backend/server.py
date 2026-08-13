@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 
 import bcrypt
 import jwt
+import razorpay
 import requests
 from bson import ObjectId
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
@@ -30,6 +31,7 @@ api = APIRouter(prefix="/api")
 
 JWT_ALGORITHM = "HS256"
 GST_RATE = 0.18
+CANCELLABLE = ["confirmed", "packed"]  # customer can cancel until the order is dispatched
 FREE_SHIP_ABOVE = 999
 SHIP_CHARGE = 79
 COD_FEE = 49
@@ -410,30 +412,158 @@ def order_number() -> str:
     return "IFQ" + datetime.now(timezone.utc).strftime("%y%m%d") + str(random.randint(1000, 9999))
 
 
-@api.post("/orders")
-async def create_order(body: OrderIn, user: dict = Depends(get_current_user)):
+def razorpay_configured() -> bool:
+    return bool(os.environ.get("RAZORPAY_KEY_ID") and os.environ.get("RAZORPAY_KEY_SECRET"))
+
+
+def razorpay_client():
+    if not razorpay_configured():
+        raise HTTPException(status_code=503, detail="Online payment is not configured yet. Please use COD.")
+    return razorpay.Client(auth=(os.environ["RAZORPAY_KEY_ID"], os.environ["RAZORPAY_KEY_SECRET"]))
+
+
+async def adjust_stock(product_id: str, delta: int):
+    await db.products.update_one({"id": product_id}, [
+        {"$set": {"stock": {"$max": [0, {"$add": ["$stock", delta]}]}}}
+    ])
+
+
+async def build_order(user: dict, body: OrderIn, payment_status: str, status: str) -> dict:
     totals = await compute_totals(body.items, body.coupon_code, body.payment_method)
     if not totals["items"]:
         raise HTTPException(status_code=400, detail="Cart is empty")
     now = datetime.now(timezone.utc).isoformat()
-    paid = body.payment_method == "online"
     doc = {"id": str(uuid.uuid4()), "order_no": order_number(), "user_id": str(user["_id"]),
            "email": body.address.email, "address": body.address.model_dump(),
-           "payment_method": body.payment_method,
-           "payment_status": "paid" if paid else "pending",
-           "status": "confirmed", "created_at": now,
-           "timeline": [{"status": "confirmed", "at": now}], **totals}
+           "payment_method": body.payment_method, "payment_status": payment_status,
+           "status": status, "created_at": now,
+           "timeline": [{"status": status, "at": now}], **totals}
     await db.orders.insert_one(dict(doc))
-    for line in totals["items"]:
-        await db.products.update_one({"id": line["product_id"]}, {"$inc": {"stock": -line["qty"]}})
     doc.pop("_id", None)
-    logger.info(f"NOTIFICATION (mocked): order {doc['order_no']} email->{doc['email']}")
     return doc
+
+
+async def mark_order_paid(order: dict, payment_id: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    await db.orders.update_one({"id": order["id"]}, {
+        "$set": {"payment_status": "paid", "status": "confirmed", "razorpay_payment_id": payment_id},
+        "$push": {"timeline": {"status": "confirmed", "at": now}},
+    })
+    for line in order["items"]:
+        await adjust_stock(line["product_id"], -line["qty"])
+    logger.info(f"NOTIFICATION (mocked): order {order['order_no']} paid, email->{order['email']}")
+    return await db.orders.find_one({"id": order["id"]}, {"_id": 0})
+
+
+@api.post("/orders")
+async def create_order(body: OrderIn, user: dict = Depends(get_current_user)):
+    if body.payment_method != "cod":
+        raise HTTPException(status_code=400, detail="Use the Razorpay flow for online payments")
+    doc = await build_order(user, body, payment_status="pending", status="confirmed")
+    for line in doc["items"]:
+        await adjust_stock(line["product_id"], -line["qty"])
+    logger.info(f"NOTIFICATION (mocked): COD order {doc['order_no']} email->{doc['email']}")
+    return doc
+
+
+# ---------------- razorpay ----------------
+@api.get("/payments/config")
+async def payment_config():
+    return {"configured": razorpay_configured(), "key_id": os.environ.get("RAZORPAY_KEY_ID", "")}
+
+
+@api.post("/payments/razorpay/order")
+async def razorpay_create_order(body: OrderIn, user: dict = Depends(get_current_user)):
+    client_rz = razorpay_client()
+    body.payment_method = "online"
+    doc = await build_order(user, body, payment_status="pending", status="awaiting_payment")
+    try:
+        rz_order = client_rz.order.create({
+            "amount": int(round(doc["total"] * 100)),
+            "currency": "INR",
+            "receipt": doc["order_no"][:40],
+            "payment_capture": 1,
+            "notes": {"order_id": doc["id"], "email": doc["email"]},
+        })
+    except Exception as e:
+        logger.error(f"Razorpay order create failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
+    await db.orders.update_one({"id": doc["id"]}, {"$set": {"razorpay_order_id": rz_order["id"]}})
+    return {"order_id": doc["id"], "order_no": doc["order_no"], "amount": rz_order["amount"],
+            "currency": "INR", "razorpay_order_id": rz_order["id"],
+            "key_id": os.environ["RAZORPAY_KEY_ID"],
+            "prefill": {"name": doc["address"]["full_name"], "email": doc["email"],
+                        "contact": doc["address"]["phone"]}}
+
+
+class VerifyIn(BaseModel):
+    order_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@api.post("/payments/razorpay/verify")
+async def razorpay_verify(body: VerifyIn, user: dict = Depends(get_current_user)):
+    client_rz = razorpay_client()
+    order = await db.orders.find_one({"id": body.order_id, "user_id": str(user["_id"])}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("razorpay_order_id") != body.razorpay_order_id:
+        raise HTTPException(status_code=400, detail="Payment does not match this order")
+    try:
+        client_rz.utility.verify_payment_signature({
+            "razorpay_order_id": body.razorpay_order_id,
+            "razorpay_payment_id": body.razorpay_payment_id,
+            "razorpay_signature": body.razorpay_signature,
+        })
+    except Exception:
+        await db.orders.update_one({"id": order["id"]}, {"$set": {"payment_status": "failed"}})
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    if order["payment_status"] == "paid":
+        return order
+    return await mark_order_paid(order, body.razorpay_payment_id)
+
+
+@api.post("/payments/razorpay/cancel/{order_id}")
+async def razorpay_cancel(order_id: str, user: dict = Depends(get_current_user)):
+    await db.orders.update_one(
+        {"id": order_id, "user_id": str(user["_id"]), "payment_status": "pending"},
+        {"$set": {"payment_status": "cancelled", "status": "cancelled"}})
+    return {"ok": True}
+
+
+@api.post("/payments/razorpay/webhook")
+async def razorpay_webhook(request: Request):
+    secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+    payload = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    try:
+        razorpay_client().utility.verify_webhook_signature(payload.decode(), signature, secret)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    event = await request.json()
+    entity = (event.get("payload", {}).get("payment", {}) or {}).get("entity", {})
+    rz_order_id = entity.get("order_id")
+    if not rz_order_id:
+        return {"ignored": True}
+    order = await db.orders.find_one({"razorpay_order_id": rz_order_id}, {"_id": 0})
+    if not order:
+        return {"ignored": True}
+    if event.get("event") == "payment.captured" and order["payment_status"] != "paid":
+        await mark_order_paid(order, entity.get("id", ""))
+    elif event.get("event") == "payment.failed" and order["payment_status"] == "pending":
+        await db.orders.update_one({"id": order["id"]}, {"$set": {"payment_status": "failed"}})
+    return {"ok": True}
 
 
 @api.get("/orders")
 async def my_orders(user: dict = Depends(get_current_user)):
-    return await db.orders.find({"user_id": str(user["_id"])}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return await db.orders.find(
+        {"user_id": str(user["_id"]), "status": {"$ne": "awaiting_payment"}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
 
 
 @api.get("/orders/{order_id}")
@@ -445,6 +575,33 @@ async def order_detail(order_id: str, user: dict = Depends(get_current_user)):
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     return o
+
+
+@api.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: str, user: dict = Depends(get_current_user)):
+    q = {"id": order_id}
+    if user.get("role") != "admin":
+        q["user_id"] = str(user["_id"])
+    order = await db.orders.find_one(q, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="This order is already cancelled")
+    if order["status"] not in CANCELLABLE:
+        raise HTTPException(
+            status_code=400,
+            detail="This order has already been dispatched and can no longer be cancelled. Please refuse delivery or request a return.")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.orders.update_one({"id": order_id}, {
+        "$set": {"status": "cancelled", "cancelled_at": now,
+                 "cancelled_by": "admin" if user.get("role") == "admin" else "customer",
+                 "payment_status": "refund_pending" if order["payment_status"] == "paid" else order["payment_status"]},
+        "$push": {"timeline": {"status": "cancelled", "at": now}},
+    })
+    for line in order["items"]:
+        await adjust_stock(line["product_id"], line["qty"])
+    logger.info(f"NOTIFICATION (mocked): order {order['order_no']} cancelled, email->{order['email']}")
+    return await db.orders.find_one({"id": order_id}, {"_id": 0})
 
 
 # ---------------- wishlist ----------------
@@ -468,7 +625,7 @@ async def toggle_wishlist(product_id: str, user: dict = Depends(get_current_user
 # ---------------- admin ----------------
 @api.get("/admin/stats")
 async def admin_stats(admin: dict = Depends(get_admin)):
-    orders = await db.orders.find({}, {"_id": 0}).to_list(1000)
+    orders = await db.orders.find({"status": {"$ne": "awaiting_payment"}}, {"_id": 0}).to_list(1000)
     revenue = sum(o["total"] for o in orders)
     gst = sum(o.get("gst", 0) for o in orders)
     return {"orders": len(orders), "revenue": round(revenue, 2), "gst_collected": round(gst, 2),
@@ -486,7 +643,7 @@ async def admin_orders(admin: dict = Depends(get_admin)):
 @api.put("/admin/orders/{order_id}/status")
 async def update_order_status(order_id: str, body: Dict[str, str], admin: dict = Depends(get_admin)):
     status = body.get("status", "")
-    if status not in ["confirmed", "packed", "shipped", "delivered", "cancelled"]:
+    if status not in ["confirmed", "packed", "shipped", "delivered", "cancelled", "awaiting_payment"]:
         raise HTTPException(status_code=400, detail="Invalid status")
     now = datetime.now(timezone.utc).isoformat()
     res = await db.orders.update_one({"id": order_id}, {
@@ -564,7 +721,7 @@ async def update_settings(body: SettingsIn, admin: dict = Depends(get_admin)):
 
 @api.get("/admin/gst-report")
 async def gst_report(admin: dict = Depends(get_admin)):
-    orders = await db.orders.find({}, {"_id": 0}).to_list(1000)
+    orders = await db.orders.find({"status": {"$ne": "awaiting_payment"}}, {"_id": 0}).to_list(1000)
     buckets: Dict[str, Dict[str, float]] = {}
     for o in orders:
         month = o["created_at"][:7]
