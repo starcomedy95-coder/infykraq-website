@@ -167,7 +167,7 @@ export default function Checkout() {
             <p className="overline mb-4">Order summary</p>
             <div className="space-y-3 mb-5">
               {items.map((it, i) => (
-                <div key={i} className="flex gap-3 items-center">
+                <div key={`${it.product_id}-${JSON.stringify(it.variant)}`} className="flex gap-3 items-center">
                   <img src={it.image} alt="" className="w-12 h-14 object-cover rounded-sm bg-secondary" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{it.title}</p>

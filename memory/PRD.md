@@ -8,7 +8,7 @@ wishlist, pincode check, delivery estimate, return policy), cart (qty update, co
 checkout (contact, address, payment gateway + COD, order summary, coupon), payment gateway (Razorpay/PhonePe),
 order system (order ID, invoice PDF, email/WhatsApp notification, status updates), customer account,
 admin panel (product management, dynamic category fields, inventory, shipping, GST reports, coupons, offers,
-website settings, customer management). Brand: INFYKRAQ. Contact: 9639905611. Email: waqutsaini@gmail.com.
+website settings, customer management). Brand: INFYKRAQ. Contact: 963990561. Email: waqutsaini@gmail.com.
 Security: SSL, admin protection, role-based access, daily backup.
 Expansion — Phase 1: website, payment, COD, shipping, GST. Phase 2: Android/iOS app. Phase 3: loyalty/referral.
 

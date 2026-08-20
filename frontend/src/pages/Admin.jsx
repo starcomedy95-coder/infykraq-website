@@ -52,7 +52,14 @@ export default function Admin() {
         .map(([k, v]) => [k.trim(), list ? v.split(",").map((x) => x.trim()).filter(Boolean) : v.trim()])
     );
 
-  const submitProduct = async (e) => {
+    const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await api.post("/upload-image", formData);
+  return response.data.url;
+};
+    const submitProduct = async (e) => {
     e.preventDefault();
     const body = {
       title: form.title, category: form.category, brand: form.brand,
@@ -173,6 +180,26 @@ export default function Admin() {
               <F label="Stock" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} testid="pf-stock" />
             </div>
             <TA label="Image URLs (one per line)" value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} testid="pf-images" />
+            <Input
+  type="file"
+  accept="image/*"
+  multiple
+  onChange={async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const urls = await Promise.all(
+      files.map((file) => uploadImage(file))
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      images: [...prev.images.split("\n").filter(Boolean), ...urls].join("\n"),
+    }));
+
+    e.target.value = "";
+  }}
+/>
             <TA label="Dynamic attributes (Key: v1, v2)" value={form.attributes} onChange={(e) => setForm({ ...form, attributes: e.target.value })} testid="pf-attributes" />
             <TA label="Specs (Key: value)" value={form.specs} onChange={(e) => setForm({ ...form, specs: e.target.value })} testid="pf-specs" />
             <F label="Tags (new, bestseller, flash)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} testid="pf-tags" />

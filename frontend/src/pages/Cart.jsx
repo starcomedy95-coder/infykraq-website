@@ -52,7 +52,13 @@ export default function Cart() {
     }
   }, [items, payload]);
 
-  useEffect(() => { quote(applied); /* eslint-disable-next-line */ }, [items.length, JSON.stringify(items)]);
+  const itemsKey = JSON.stringify(items.map(({ product_id, qty, variant }) => [product_id, qty, variant]));
+
+  useEffect(() => {
+    quote(applied);
+    // quote/applied are intentionally omitted: re-quote only when the cart contents change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
   useEffect(() => { api.get("/coupons").then((r) => setCoupons(r.data)).catch(() => {}); }, []);
 
   if (!items.length)
@@ -71,8 +77,10 @@ export default function Cart() {
 
       <div className="grid lg:grid-cols-3 gap-8 mt-10">
         <div className="lg:col-span-2 space-y-4">
-          {items.map((it, i) => (
-            <div key={i} className="flex gap-4 bg-card border border-border rounded-md p-4" data-testid={`cart-item-${it.product_id}`}>
+          {items.map((it, i) => {
+            const rowKey = `${it.product_id}-${Object.values(it.variant || {}).join("-") || "std"}`;
+            return (
+            <div key={rowKey} className="flex gap-4 bg-card border border-border rounded-md p-4" data-testid={`cart-item-${rowKey}`}>
               <Link to={`/p/${it.product_id}`} className="w-24 h-28 shrink-0 rounded-sm overflow-hidden bg-secondary">
                 <img src={it.image} alt={it.title} className="w-full h-full object-cover" />
               </Link>
@@ -94,7 +102,8 @@ export default function Cart() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+})}
         </div>
 
         <div className="lg:sticky lg:top-32 lg:self-start space-y-4">

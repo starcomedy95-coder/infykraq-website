@@ -1,0 +1,36 @@
+{
+  "summary": "Refactor-only regression pass (iteration 4). Ran full pytest suite twice (once bare, once with TEST_* env vars) — 60/60 pass in ~13s both times. Verified every regression focus called out in the review request: (1) 3 successive COD orders returned 3 distinct order numbers all matching ^IFQ\\d{10}$ (IFQ2608132247/IFQ2608132976/IFQ2608138601 via curl, IFQ2608138505 via UI checkout). (2) Seeded a user_sessions row per /app/auth_testing.md: prefix confirmed to be 'emg_'; /api/auth/me + /api/orders authenticate via Bearer AND cookie; cookie-based POST /api/auth/logout deletes the row (subsequent /me → 401). (3) POST /api/auth/session with X-Session-ID:bogus → 401 'Invalid or expired session'. JWT admin+customer login/register/me/logout all still work. (4) React memoisation: header cart badge goes 0→1→2 live when adding two different variants of the SAME product (Color+Material combos), same badge collapses to hidden after emptying cart. Login on /login makes account-link+logout-btn appear in the header WITHOUT a manual refresh; logout instantly restores the LOGIN CTA. (5) Cart re-quote runs on add/remove/qty change (totals updated ₹6598 → ₹8907 after qty+); WELCOME10 remains applied after a qty change (discount 660 → 990 as expected). (6) Stable list keys work — PDP thumb-1 click actually swaps the main image src; cart renders 2 SEPARATE rows for the same product with different variants; localStorage cart survives full page reload (2 rows still there). (7) Full COD checkout end-to-end via UI reached the order page with a valid IFQ order_no. (8) Razorpay disabled path: /api/payments/config → configured:false, /api/payments/razorpay/order with a proper cart body → 503, POST /api/orders with payment_method online → 400 'Use the Razorpay flow', pay-online button on /checkout has disabled=true. (9) Admin path: customer hitting /api/admin/stats → 403, admin → 200 with stats payload. (10) Mobile 390px: home/category/PDP (sticky add-to-cart-btn-mobile present)/cart/checkout all have scrollWidth==390 (no horizontal overflow) and no non-auth console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/logout", "issue": "Only deletes the user_sessions row if the client sent the session_token via COOKIE. Calling logout with only an Authorization: Bearer <session_token> header returns 200 but does NOT delete the row and the token remains valid on /api/auth/me. Cookie-based logout works correctly. Consider reading Bearer as fallback in the logout handler, matching get_current_user."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_payments.py",
+    "/app/backend/tests/test_cancellation.py",
+    "/app/test_reports/pytest/iteration_4.xml"
+  ],
+  "action_items": [
+    "(Optional / non-blocking) Extend logout() to also delete the session row when the token arrives as a Bearer header, not only as a cookie."
+  ],
+  "critical_code_review_comments": [
+    "Cart data-testid on the row wrapper is `cart-item-${product_id}` — for two variants of the SAME product this yields duplicate testids on the page (two rows with the same data-testid). The React key correctly includes variant, but the testid does not. Suggest `cart-item-${product_id}-${variantHash}` or similar so tests can target each row uniquely.",
+    "server.py still ~785 lines — carry-over from iterations 1-3, no action needed for this refactor pass.",
+    "Iteration 3's minor notes (razorpay_cancel timeline entry, refund audit trail, awaiting_payment stock race) are still open but out of scope for this crypto-safe-random / memoisation refactor."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (60/60 pytest, ran both with and without TEST_* env vars)", "frontend": "100% for the regression scope (memoisation, list keys, cart, checkout, mobile)"},
+  "test_credentials": "admin@infykraq.com / Admin@123, customer@infykraq.com / Test@123",
+  "seed_data_creation": "4 real COD orders were placed against customer@infykraq.com (IFQ2608132247, IFQ2608132976, IFQ2608138601, IFQ2608138505) plus 1 additional COD order via the mobile UI test — all left in the customer's order history for reference. One order (IFQ2608132976) was moved to 'shipped' via admin. One transient user_sessions row (emg_test<ts>) was inserted and then deleted after logout verification (deletedCount=1 confirmed).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 60 pytest cases pass in isolation and together (flaky admin-stats test from iteration_3 did not resurface this run). Frontend regression targets from the refactor (useMemo on Auth+Cart contexts, itemsKey in Cart useEffect, stable react keys on PDP thumbs / cart rows / checkout summary) all behave correctly: header updates live on login/logout, cart badge updates live on add/remove, two-variant-same-product produces two independent cart rows, coupon persists across qty changes, PDP thumb click switches main image. No new bugs. Only nit: cookie-required logout for Google sessions (minor) and duplicate cart-item-<pid> testids for multi-variant same product (test-ergonomics nit).",
+  "rca of the issue": "N/A — no functional bugs introduced by the refactor. The two nits noted above pre-date this iteration."
+}

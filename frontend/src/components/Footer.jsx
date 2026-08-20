@@ -86,7 +86,7 @@ export const Footer = () => {
         <div>
           <p className="overline mb-4">Contact</p>
           <ul className="space-y-2.5 text-muted-foreground">
-            <li className="flex items-center gap-2" data-testid="footer-phone"><Phone size={14} /> {settings.phone || "9639905611"}</li>
+            <li className="flex items-center gap-2" data-testid="footer-phone"><Phone size={14} /> {settings.phone || "963990561"}</li>
             <li className="flex items-center gap-2 break-all" data-testid="footer-email"><Mail size={14} /> {settings.email || "waqutsaini@gmail.com"}</li>
             <li>{settings.address || "Uttar Pradesh, India"}</li>
           </ul>

@@ -17,10 +17,12 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin@infykraq.com"
-ADMIN_PASSWORD = "Admin@123"
-CUSTOMER_EMAIL = "customer@infykraq.com"
-CUSTOMER_PASSWORD = "Test@123"
+# Test-account credentials come from the environment; the defaults match the seeded demo accounts
+# documented in /app/memory/test_credentials.md (no production secrets live here).
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@infykraq.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin@123")
+CUSTOMER_EMAIL = os.environ.get("TEST_CUSTOMER_EMAIL", "customer@infykraq.com")
+CUSTOMER_PASSWORD = os.environ.get("TEST_CUSTOMER_PASSWORD", "Test@123")
 
 
 def _login(email, password):

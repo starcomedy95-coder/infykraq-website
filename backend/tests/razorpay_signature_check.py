@@ -12,8 +12,9 @@ import uuid
 import requests
 
 API = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") + "/api"
-SECRET = "dummysecret456"
-WEBHOOK_SECRET = "whsecret789"
+CUSTOMER = os.environ.get("TEST_CUSTOMER_EMAIL", "customer@infykraq.com")
+SECRET = os.environ["RAZORPAY_KEY_SECRET"]
+WEBHOOK_SECRET = os.environ["RAZORPAY_WEBHOOK_SECRET"]
 
 
 def sign(payload: str, secret: str) -> str:
@@ -27,16 +28,16 @@ def mongo(js: str) -> str:
 
 def seed_order(order_id: str, rz_order_id: str) -> None:
     mongo(f"""
-    var u = db.users.findOne({{email:'customer@infykraq.com'}});
+    var u = db.users.findOne({{email:'{CUSTOMER}'}});
     var p = db.products.findOne({{}});
     db.orders.insertOne({{
         id:'{order_id}', order_no:'RZTEST{order_id[:6]}', user_id:u._id.toString(),
-        email:'customer@infykraq.com', payment_method:'online', payment_status:'pending',
+        email:'{CUSTOMER}', payment_method:'online', payment_status:'pending',
         status:'awaiting_payment', created_at:new Date().toISOString(),
         razorpay_order_id:'{rz_order_id}',
         items:[{{product_id:p.id, title:p.title, price:100, mrp:100, image:'', qty:1, variant:{{}}, amount:100}}],
         subtotal:100, discount:0, coupon:null, shipping:79, cod_fee:0, gst:15, total:179,
-        address:{{full_name:'T',phone:'9',email:'customer@infykraq.com',line1:'x',city:'x',state:'x',pincode:'110001'}},
+        address:{{full_name:'T',phone:'9',email:'{CUSTOMER}',line1:'x',city:'x',state:'x',pincode:'110001'}},
         timeline:[]
     }});""")
 
@@ -51,7 +52,9 @@ def status_of(order_id: str) -> tuple:
 
 
 session = requests.Session()
-session.post(f"{API}/auth/login", json={"email": "customer@infykraq.com", "password": "Test@123"}).raise_for_status()
+session.post(f"{API}/auth/login", json={
+    "email": os.environ.get("TEST_CUSTOMER_EMAIL", "customer@infykraq.com"),
+    "password": os.environ.get("TEST_CUSTOMER_PASSWORD", "Test@123")}).raise_for_status()
 
 results = []
 

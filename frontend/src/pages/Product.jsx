@@ -68,7 +68,7 @@ export default function Product() {
           <div className="flex gap-3 mt-4 overflow-x-auto no-scrollbar">
             {(p.images || []).map((src, i) => (
               <button
-                key={i}
+                key={src}
                 onClick={() => setActive(i)}
                 className={`w-20 h-20 shrink-0 rounded-sm overflow-hidden border-2 transition-colors ${active === i ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"}`}
                 data-testid={`thumb-${i}`}

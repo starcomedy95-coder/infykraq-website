@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const CartCtx = createContext(null);
@@ -54,9 +54,11 @@ export function CartProvider({ children }) {
   const count = items.reduce((s, x) => s + x.qty, 0);
   const payload = items.map(({ product_id, qty, variant }) => ({ product_id, qty, variant }));
 
-  return (
-    <CartCtx.Provider value={{ items, add, setQty, remove, clear, count, payload }}>
-      {children}
-    </CartCtx.Provider>
+  const value = useMemo(
+    () => ({ items, add, setQty, remove, clear, count, payload }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items]
   );
+
+  return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 }

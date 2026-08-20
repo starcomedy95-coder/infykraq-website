@@ -1,13 +1,23 @@
 from dotenv import load_dotenv
 from pathlib import Path
 import os
+import uvicorn
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+import time
+import os
 import uuid
 import random
 import logging
+import cloudinary
+import cloudinary.uploader
+print("Cloud Name:", os.getenv("CLOUDINARY_CLOUD_NAME")) 
+print("API Key:",os.getenv("CLOUDINARY_API_KEY")) 
+print("API Secret:",
+os.getenv("CLOUDINARY_API_SECRET"))                                                                                                                                      
+cloudinary.config(cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"), api_key=os.getenv("CLOUDINARY_API_KEY"), api_secret=os.getenv("CLOUDINARY_API_SECRET"), secure=True)
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 
@@ -15,8 +25,9 @@ import bcrypt
 import jwt
 import razorpay
 import requests
+import secrets as pysecrets
 from bson import ObjectId
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -196,6 +207,14 @@ class SettingsIn(BaseModel):
 
 
 # ---------------- auth routes ----------------
+@api.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    start = time.time()
+    result = cloudinary.uploader.upload(file.file)
+    elapsed = time.time() - start
+    print(f"Image upload took {elapsed:.2f} seconds")
+    print(f"Image URL: {result['secure_url']}")
+    return {"url": result["secure_url"]}
 @api.post("/auth/register")
 async def register(body: RegisterIn, response: Response):
     email = body.email.lower()
@@ -251,7 +270,8 @@ async def google_session(request: Request, response: Response):
     if not user:
         doc = {"email": email, "name": data.get("name") or email.split("@")[0], "phone": "",
                "picture": data.get("picture", ""), "role": "customer", "auth_provider": "google",
-               "password_hash": hash_password(uuid.uuid4().hex),
+               # Google users never sign in with a password; store an unusable random one.
+               "password_hash": hash_password(pysecrets.token_urlsafe(32)),
                "created_at": datetime.now(timezone.utc).isoformat()}
         res = await db.users.insert_one(doc)
         doc["_id"] = res.inserted_id
@@ -259,7 +279,7 @@ async def google_session(request: Request, response: Response):
     elif data.get("picture") and not user.get("picture"):
         await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": data["picture"]}})
 
-    session_token = "emg_" + uuid.uuid4().hex
+    session_token = "emg_" + pysecrets.token_hex(32)
     await db.user_sessions.insert_one({
         "user_id": str(user["_id"]), "session_token": session_token,
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
@@ -273,6 +293,10 @@ async def google_session(request: Request, response: Response):
 @api.post("/auth/logout")
 async def logout(request: Request, response: Response):
     session_token = request.cookies.get("session_token")
+    if not session_token:
+        header = request.headers.get("Authorization", "")
+        if header.startswith("Bearer ") and header[7:].startswith("emg_"):
+            session_token = header[7:]
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
     response.delete_cookie("session_token", path="/")
@@ -657,7 +681,6 @@ async def update_order_status(order_id: str, body: Dict[str, str], admin: dict =
 async def admin_products(admin: dict = Depends(get_admin)):
     return await db.products.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
 
-
 @api.post("/admin/products")
 async def create_product(body: ProductIn, admin: dict = Depends(get_admin)):
     doc = body.model_dump()
@@ -753,7 +776,7 @@ async def startup():
     existing = await db.users.find_one({"email": admin_email})
     if not existing:
         await db.users.insert_one({"email": admin_email, "name": "INFYKRAQ Admin", "role": "admin",
-                                   "phone": "9639905611", "password_hash": hash_password(admin_password),
+                                   "phone": "963990561", "password_hash": hash_password(admin_password),
                                    "created_at": datetime.now(timezone.utc).isoformat()})
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email},
@@ -782,3 +805,6 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000)
