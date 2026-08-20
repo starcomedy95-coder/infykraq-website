@@ -8,7 +8,14 @@ export default function Wishlist() {
   const [err, setErr] = useState(false);
 
   useEffect(() => {
-    api.get("/wishlist").then((r) => setItems(r.data)).catch(() => setErr(true));
+    api.get("/wishlist")
+  .then((r) => {
+    setItems(Array.isArray(r.data) ? r.data : []);
+  })
+  .catch(() => {
+    setErr(true);
+    setItems([]);
+  });
   }, []);
 
   if (err)
