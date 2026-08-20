@@ -8,7 +8,11 @@ export default function Account() {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    api.get("/orders").then((r) => setOrders(r.data)).catch(() => {});
+   api.get("/orders")
+  .then((r) => {
+    setOrders(Array.isArray(r.data) ? r.data : []);
+  })
+  .catch(() => setOrders([]));
   }, []);
 
   return (
