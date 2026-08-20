@@ -42,13 +42,16 @@ export default function Home() {
       api.get("/settings"),
     ])
       .then(([c, n, b, f, r, s]) => {
-        setCats(Array.isArray(c.data) ? c.data : []); setNewest(n.data); setBest(b.data);
-        setFlash(Array.isArray(f.data) ? f.data : []); setReviews(r.data); setSettings(s.data);
+        setCats(Array.isArray(c.data) ? c.data : []);
+        setNewest(Array.isArray(n.data) ? n.data : []);
+        setBest(Array.isArray(b.data) ? b.data : []);
+        setFlash(Array.isArray(f.data) ? f.data : []);
+        setReviews(Array.isArray(r.data) ? r.data : []);
+        setSettings(s.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
   const hero = cats[1]?.image;
 
   return (
