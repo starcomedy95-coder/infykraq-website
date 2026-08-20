@@ -17,7 +17,12 @@ export const Header = () => {
   const nav = useNavigate();
 
   useEffect(() => {
-    api.get("/categories").then((r) => setCats(r.data)).catch(() => {});
+    api.get("/categories")
+  .then((r) => {
+    console.log(r.data);
+    setCats(Array.isArray(r.data) ? r.data : []);
+  })
+  .catch(() => setCats([]));
     api.get("/settings").then((r) => setSettings(r.data)).catch(() => {});
   }, []);
 
