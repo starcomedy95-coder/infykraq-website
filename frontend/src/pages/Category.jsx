@@ -46,7 +46,7 @@ export default function Category() {
     api.get(`/products?${params}`).then((r) => setProducts(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [slug, q, sort, range]);
 
-  const cat = cats.find((c) => c.slug === slug);
+  const cat = Array.isArray(cats) ? cats.find((c) => c.slug === slug) : null;
   const title = q ? `Results for “${q}”` : cat?.name || "All products";
 
   return (
