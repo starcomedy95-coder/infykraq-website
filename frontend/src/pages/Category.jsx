@@ -27,7 +27,10 @@ export default function Category() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/categories").then((r) => setCats(r.data)).catch(() => {});
+    api.get("/categories").then((r) => {
+  console.log("Categories API:", r.data);
+  setCats(r.data);
+}).catch(() => {});
   }, []);
 
   useEffect(() => {
