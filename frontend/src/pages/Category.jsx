@@ -43,7 +43,10 @@ export default function Category() {
       params.set("min_price", a);
       params.set("max_price", b);
     }
-    api.get(`/products?${params}`).then((r) => setProducts(r.data)).catch(() => {}).finally(() => setLoading(false));
+    api.get(`/products?${params}`).then((r) => {
+  console.log("Products API:", r.data);
+  setProducts(Array.isArray(r.data) ? r.data : []);
+}).catch(() => {}).finally(() => setLoading(false));
   }, [slug, q, sort, range]);
 
   const cat = Array.isArray(cats) ? cats.find((c) => c.slug === slug) : null;
