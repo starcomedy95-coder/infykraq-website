@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const STATUSES = ["confirmed", "packed", "shipped", "delivered", "cancelled"];
+const STATUSES = ["pending", "accepted", "packed", "shipped", "delivered", "cancelled"];
 const EMPTY = {
   title: "", category: "footwear", brand: "INFYKRAQ", price: 999, mrp: 1999, stock: 10,
   images: "", description: "", attributes: "Size: 7, 8, 9\nColor: Black, Tan", specs: "Warranty: 1 Year", tags: "new",
@@ -139,143 +139,242 @@ export default function Admin() {
           ))}
         </TabsList>
 
-        <TabsContent value="orders" className="mt-6 space-y-3">
-  {orders.map((o) => (
-    <div
-      key={o.id}
-      className="bg-card border border-border rounded-md p-4"
-      data-testid={`admin-order-${o.order_no}`}
-    >
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div>
-          <p className="font-mono-num text-sm">{o.order_no}</p>
+        <TabsContent value="orders" className="mt-6 space-y-8">
 
-          <p className="text-xs text-muted-foreground mt-1">
-            {o.address?.full_name} · {o.address?.city} ·{" "}
-            {o.payment_method?.toUpperCase()} · {inr(o.total)}
+  {["pending", "accepted", "packed", "shipped", "delivered", "cancelled"].map((status) => {
+    const statusOrders = orders.filter((o) => o.status === status);
+
+    return (
+      <div key={status}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="overline">
+            {status === "pending" && "Pending Orders"}
+            {status === "accepted" && "Accepted Orders"}
+            {status === "packed" && "Packed Orders"}
+            {status === "shipped" && "Shipped Orders"}
+            {status === "delivered" && "Delivered Orders"}
+            {status === "cancelled" && "Cancelled Orders"}
           </p>
+
+          <span className="text-xs text-muted-foreground">
+            {statusOrders.length} order(s)
+          </span>
         </div>
 
-        <Select
-          value={o.status}
-          onValueChange={(v) => setStatus(o.id, v)}
-        >
-          <SelectTrigger
-            className="w-40 h-9 text-xs"
-            data-testid={`order-status-${o.order_no}`}
-          >
-            <SelectValue />
-          </SelectTrigger>
+        <div className="space-y-3">
+          {statusOrders.map((o) => (
+            <div
+              key={o.id}
+              className="bg-card border border-border rounded-md p-4"
+              data-testid={`admin-order-${o.order_no}`}
+            >
 
-          <SelectContent>
-            {STATUSES.map((s) => (
-              <SelectItem
-                key={s}
-                value={s}
-                className="text-xs capitalize"
-              >
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+              <div className="flex flex-wrap gap-3 items-center justify-between">
+                <div>
+                  <p className="font-mono-num text-sm">
+                    {o.order_no}
+                  </p>
 
-      {/* Customer Details */}
-      <div className="mt-4 border-t border-border/60 pt-4">
-        <p className="overline mb-3">Customer Details</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {o.address?.full_name} · {o.address?.city} ·{" "}
+                    {o.payment_method?.toUpperCase()} · {inr(o.total)}
+                  </p>
+                </div>
 
-        <div className="grid sm:grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground">Name</p>
-            <p>{o.address?.full_name || "—"}</p>
-          </div>
+                <div className="flex gap-2 flex-wrap">
 
-          <div>
-            <p className="text-xs text-muted-foreground">Phone</p>
-            <p>{o.address?.phone || "—"}</p>
-          </div>
+                  {status === "pending" && (
+                    <>
+                      <Button
+                        size="sm"
+                        className="btn-emerald text-xs"
+                        onClick={() => setStatus(o.id, "accepted")}
+                      >
+                        ACCEPT ORDER
+                      </Button>
 
-          <div>
-            <p className="text-xs text-muted-foreground">Email</p>
-            <p>{o.address?.email || o.email || "—"}</p>
-          </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs text-destructive border-destructive/40"
+                        onClick={() => setStatus(o.id, "cancelled")}
+                      >
+                        CANCEL ORDER
+                      </Button>
+                    </>
+                  )}
 
-          <div>
-            <p className="text-xs text-muted-foreground">Pincode</p>
-            <p>{o.address?.pincode || "—"}</p>
-          </div>
+                  {status === "accepted" && (
+                    <>
+                      <Button
+                        size="sm"
+                        className="btn-emerald text-xs"
+                        onClick={() => setStatus(o.id, "packed")}
+                      >
+                        PACK ORDER
+                      </Button>
 
-          <div className="sm:col-span-2">
-            <p className="text-xs text-muted-foreground">Full Address</p>
-            <p className="mt-1">
-              {o.address?.line1 || ""}
-              {o.address?.line2 ? `, ${o.address.line2}` : ""}
-              {o.address?.city ? `, ${o.address.city}` : ""}
-              {o.address?.state ? `, ${o.address.state}` : ""}
-              {o.address?.pincode ? ` - ${o.address.pincode}` : ""}
-            </p>
-          </div>
-        </div>
-      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs text-destructive border-destructive/40"
+                        onClick={() => setStatus(o.id, "cancelled")}
+                      >
+                        CANCEL ORDER
+                      </Button>
+                    </>
+                  )}
 
-      {/* Order Items */}
-      <div className="mt-4 border-t border-border/60 pt-4">
-        <p className="overline mb-3">Order Items</p>
+                  {status === "packed" && (
+                    <Button
+                      size="sm"
+                      className="btn-emerald text-xs"
+                      onClick={() => setStatus(o.id, "shipped")}
+                    >
+                      SHIP ORDER
+                    </Button>
+                  )}
 
-        {o.items?.map((item) => (
-          <div
-            key={item.product_id + JSON.stringify(item.variant)}
-            className="flex items-center gap-3 py-2"
-          >
-            <img
-              src={item.image}
-              alt=""
-              className="w-10 h-12 object-cover rounded-sm bg-secondary"
-            />
+                  {status === "shipped" && (
+                    <Button
+                      size="sm"
+                      className="btn-emerald text-xs"
+                      onClick={() => setStatus(o.id, "delivered")}
+                    >
+                      MARK DELIVERED
+                    </Button>
+                  )}
 
-            <div className="flex-1 min-w-0">
-              <p className="text-sm truncate">{item.title}</p>
-              <p className="text-xs text-muted-foreground">
-                Qty {item.qty}
-                {item.variant
-                  ? ` · ${Object.values(item.variant).join(", ")}`
-                  : ""}
-              </p>
+                  <span className="text-xs capitalize px-3 py-2 rounded border border-border">
+                    {status}
+                  </span>
+
+                </div>
+              </div>
+
+              {/* Customer Details */}
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <p className="overline mb-3">Customer Details</p>
+
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+
+                  <div>
+                    <p className="text-xs text-muted-foreground">Name</p>
+                    <p>{o.address?.full_name || "—"}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p>{o.address?.phone || "—"}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p>{o.address?.email || o.email || "—"}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pincode</p>
+                    <p>{o.address?.pincode || "—"}</p>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-muted-foreground">
+                      Full Address
+                    </p>
+
+                    <p className="mt-1">
+                      {o.address?.line1 || ""}
+                      {o.address?.line2 ? `, ${o.address.line2}` : ""}
+                      {o.address?.city ? `, ${o.address.city}` : ""}
+                      {o.address?.state ? `, ${o.address.state}` : ""}
+                      {o.address?.pincode
+                        ? ` - ${o.address.pincode}`
+                        : ""}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Order Items */}
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <p className="overline mb-3">Order Items</p>
+
+                {o.items?.map((item) => (
+                  <div
+                    key={item.product_id + JSON.stringify(item.variant)}
+                    className="flex items-center gap-3 py-2"
+                  >
+                    <img
+                      src={item.image}
+                      alt=""
+                      className="w-10 h-12 object-cover rounded-sm bg-secondary"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">
+                        {item.title}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        Qty {item.qty}
+                        {item.variant
+                          ? ` · ${Object.values(item.variant).join(", ")}`
+                          : ""}
+                      </p>
+                    </div>
+
+                    <span className="text-sm font-mono-num">
+                      {inr(item.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Payment & Order Info */}
+              <div className="mt-4 border-t border-border/60 pt-4 grid sm:grid-cols-3 gap-3 text-sm">
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Payment
+                  </p>
+                  <p>
+                    {o.payment_method?.toUpperCase() || "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Payment Status
+                  </p>
+                  <p>{o.payment_status || "—"}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Total
+                  </p>
+                  <p className="font-semibold">
+                    {inr(o.total)}
+                  </p>
+                </div>
+
+              </div>
+
             </div>
+          ))}
 
-            <span className="text-sm font-mono-num">
-              {inr(item.amount)}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Payment & Order Info */}
-      <div className="mt-4 border-t border-border/60 pt-4 grid sm:grid-cols-3 gap-3 text-sm">
-        <div>
-          <p className="text-xs text-muted-foreground">Payment</p>
-          <p>{o.payment_method?.toUpperCase() || "—"}</p>
-        </div>
-
-        <div>
-          <p className="text-xs text-muted-foreground">Payment Status</p>
-          <p>{o.payment_status || "—"}</p>
-        </div>
-
-        <div>
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-semibold">{inr(o.total)}</p>
+          {statusOrders.length === 0 && (
+            <p className="text-sm text-muted-foreground py-5 text-center border border-dashed border-border rounded-md">
+              No {status} orders.
+            </p>
+          )}
         </div>
       </div>
-    </div>
-  ))}
+    );
+  })}
 
-  {orders.length === 0 && (
-    <p className="text-sm text-muted-foreground py-10 text-center">
-      No orders yet.
-    </p>
-  )}
 </TabsContent>
         <TabsContent value="products" className="mt-6 grid lg:grid-cols-2 gap-8">
           <form onSubmit={submitProduct} className="bg-card border border-border rounded-md p-6 space-y-5" data-testid="product-form">

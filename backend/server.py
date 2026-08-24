@@ -470,8 +470,8 @@ async def build_order(user: dict, body: OrderIn, payment_status: str, status: st
 async def mark_order_paid(order: dict, payment_id: str) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     await db.orders.update_one({"id": order["id"]}, {
-        "$set": {"payment_status": "paid", "status": "confirmed", "razorpay_payment_id": payment_id},
-        "$push": {"timeline": {"status": "confirmed", "at": now}},
+        "$set": {"payment_status": "paid", "status": "pending", "razorpay_payment_id": payment_id},
+        "$push": {"timeline": {"status": "pending", "at": now}},
     })
     for line in order["items"]:
         await adjust_stock(line["product_id"], -line["qty"])
@@ -483,7 +483,7 @@ async def mark_order_paid(order: dict, payment_id: str) -> dict:
 async def create_order(body: OrderIn, user: dict = Depends(get_current_user)):
     if body.payment_method != "cod":
         raise HTTPException(status_code=400, detail="Use the Razorpay flow for online payments")
-    doc = await build_order(user, body, payment_status="pending", status="confirmed")
+    doc = await build_order(user, body, payment_status="pending", status="pending")
     for line in doc["items"]:
         await adjust_stock(line["product_id"], -line["qty"])
     logger.info(f"NOTIFICATION (mocked): COD order {doc['order_no']} email->{doc['email']}")
@@ -667,7 +667,7 @@ async def admin_orders(admin: dict = Depends(get_admin)):
 @api.put("/admin/orders/{order_id}/status")
 async def update_order_status(order_id: str, body: Dict[str, str], admin: dict = Depends(get_admin)):
     status = body.get("status", "")
-    if status not in ["confirmed", "packed", "shipped", "delivered", "cancelled", "awaiting_payment"]:
+    if status not in ["pending", "accepted", "packed", "shipped", "delivered", "cancelled", "awaiting_payment"]:
         raise HTTPException(status_code=400, detail="Invalid status")
     now = datetime.now(timezone.utc).isoformat()
     res = await db.orders.update_one({"id": order_id}, {
