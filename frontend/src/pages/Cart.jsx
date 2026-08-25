@@ -11,7 +11,7 @@ export const Totals = ({ t, payment }) => (
   <div className="space-y-3 text-sm" data-testid="order-summary">
     <Row label="Subtotal" value={inr(t.subtotal)} />
     {t.discount > 0 && <Row label={`Coupon (${t.coupon})`} value={`- ${inr(t.discount)}`} accent />}
-    <Row label="Shipping" value={t.shipping === 0 ? "FREE" : inr(t.shipping)} />
+    <Row label="Shipping" value={t.shipping === 0 ? "FREE Delivery" : inr(t.shipping)} />
     {t.cod_fee > 0 && <Row label="COD handling" value={inr(t.cod_fee)} />}
     <Row label="GST included (18%)" value={inr(t.gst)} muted />
     <div className="border-t border-border pt-3 flex justify-between font-semibold text-base">
