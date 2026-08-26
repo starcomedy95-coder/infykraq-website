@@ -412,7 +412,7 @@ async def compute_totals(items: List[CartItemIn], coupon_code: Optional[str], pa
         discount = min(discount, subtotal)
         coupon = c["code"]
     taxable = max(0.0, subtotal - discount)
-    shipping = 0.0 if taxable >= FREE_SHIP_ABOVE or taxable == 0 else float(SHIP_CHARGE)
+    shipping = 0.0
     cod_fee = float(COD_FEE) if payment_method == "cod" and taxable > 0 else 0.0
     gst = round(taxable * GST_RATE / (1 + GST_RATE), 2)  # price is GST-inclusive
     total = round(taxable + shipping + cod_fee, 2)
