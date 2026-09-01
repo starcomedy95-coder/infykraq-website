@@ -154,7 +154,7 @@ export default function Checkout() {
               <PayOption
                 active={method === "cod"} onClick={() => setMethod("cod")} icon={Banknote}
                 title="Cash on Delivery"
-                desc={`₹49 handling fee applies. Pay at your doorstep.`}
+               desc="No extra COD charges. Pay at your doorstep."
                 testid="pay-cod"
               />
             </div>
