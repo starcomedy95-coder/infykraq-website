@@ -15,6 +15,7 @@ import Account from "@/pages/Account";
 import Wishlist from "@/pages/Wishlist";
 import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
+import ThankYou from "@/pages/ThankYou";
 
 function AppRoutes() {
   const location = useLocation();
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/account" element={<Account />} />
       <Route path="/wishlist" element={<Wishlist />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/thank-you" element={<ThankYou />} />
     </Routes>
   );
 }
