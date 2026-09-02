@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Star, Heart, Truck, RotateCcw, ShieldCheck, Check } from "lucide-react";
+import { Star, Heart, Share2, Truck, RotateCcw, ShieldCheck, Check } from "lucide-react";
 import { api, inr, apiError } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +9,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import { Pagination } from "swiper/modules";
+import "swiper/css/pagination";
 
 export default function Product() {
   const { id } = useParams();
@@ -52,6 +56,26 @@ export default function Product() {
       toast.error(apiError(e));
     }
   };
+  const shareProduct = async () => {
+  const shareData = {
+    title: p.title,
+    text: `Check out this product on INFYKRAQ: ${p.title}`,
+    url: window.location.href,
+  };
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Product link copied!");
+    }
+  } catch (e) {
+    if (e?.name !== "AbortError") {
+      toast.error("Unable to share product");
+    }
+  }
+};
 
   if (!p) return <div className="max-w-7xl mx-auto px-4 py-24 animate-pulse grid lg:grid-cols-2 gap-10"><div className="aspect-square bg-secondary rounded-md" /><div className="space-y-4"><div className="h-8 bg-secondary w-2/3" /><div className="h-4 bg-secondary w-1/3" /></div></div>;
 
@@ -61,25 +85,57 @@ export default function Product() {
     <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 pb-28 lg:pb-10" data-testid="product-page">
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-16">
         {/* gallery */}
-        <div className="lg:sticky lg:top-32 lg:self-start">
-          <div className="rounded-md overflow-hidden border border-border bg-card zoom-wrap aspect-square" data-testid="product-main-image">
-            <img src={p.images?.[active]} alt={p.title} className="w-full h-full object-cover cursor-zoom-in" />
-          </div>
-          <div className="flex gap-3 mt-4 overflow-x-auto no-scrollbar">
-            {(p.images || []).map((src, i) => (
-              <button
-                key={src}
-                onClick={() => setActive(i)}
-                className={`w-20 h-20 shrink-0 rounded-sm overflow-hidden border-2 transition-colors ${active === i ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"}`}
-                data-testid={`thumb-${i}`}
-              >
-                <img src={src} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
+<div className="lg:sticky lg:top-32 lg:self-start">
+  <div className="relative">
+    <Swiper
+      spaceBetween={10}
+      slidesPerView={1}
+      pagination={{ clickable: true }}
+      modules={[Pagination]}
+      onSlideChange={(swiper) => setActive(swiper.activeIndex)}
+      className="w-full aspect-square rounded-md overflow-hidden border border-border bg-card"
+    >
+      {(p.images || []).map((src, i) => (
+        <SwiperSlide key={src}>
+          <img
+            src={src}
+            alt={`${p.title} ${i + 1}`}
+            className="w-full h-full object-cover"
+          />
+        </SwiperSlide>
+      ))}
+    </Swiper>
 
-        {/* info */}
+    {/* Share button */}
+    <button
+      type="button"
+      onClick={shareProduct}
+      aria-label="Share product"
+      className="absolute top-3 right-3 z-20 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition"
+    >
+      <Share2 size={18} />
+    </button>
+  </div>
+
+  <div className="flex gap-3 mt-4 overflow-x-auto no-scrollbar">
+    {(p.images || []).map((src, i) => (
+      <button
+        key={src}
+        onClick={() => setActive(i)}
+        className={`w-20 h-20 shrink-0 rounded-sm overflow-hidden border-2 transition-colors ${
+          active === i
+            ? "border-primary"
+            : "border-transparent opacity-70 hover:opacity-100"
+        }`}
+        data-testid={`thumb-${i}`}
+      >
+        <img src={src} alt="" className="w-full h-full object-cover" />
+      </button>
+    ))}
+  </div>
+  </div>
+
+{/* info */}
         <div>
           <p className="overline">{p.brand} · {p.category}</p>
           <h1 className="font-display text-3xl sm:text-4xl tracking-tighter mt-3" data-testid="product-title">{p.title}</h1>
