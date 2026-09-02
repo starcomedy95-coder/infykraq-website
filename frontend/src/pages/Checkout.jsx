@@ -48,7 +48,11 @@ export default function Checkout() {
 
   useEffect(() => { quote(); }, [quote]);
 
-  useEffect(() => { if (!items.length) nav("/cart"); }, [items.length, nav]);
+  useEffect(() => {
+  if (!items.length && window.location.pathname === "/checkout") {
+    nav("/cart");
+  }
+}, [items.length, nav]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
