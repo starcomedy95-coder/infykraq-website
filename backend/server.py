@@ -114,6 +114,13 @@ async def get_current_user(request: Request) -> dict:
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+async def get_optional_user(request: Request) -> Optional[dict]:
+    if not request.cookies.get("session_token") and not request.cookies.get("access_token"):
+        header = request.headers.get("Authorization", "")
+        if not header.startswith("Bearer "):
+            return None
+
+    return await get_current_user(request)
 
 
 async def get_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -452,12 +459,12 @@ async def adjust_stock(product_id: str, delta: int):
     ])
 
 
-async def build_order(user: dict, body: OrderIn, payment_status: str, status: str) -> dict:
+async def build_order(user: Optional[dict], body: OrderIn, payment_status: str, status: str) -> dict:
     totals = await compute_totals(body.items, body.coupon_code, body.payment_method)
     if not totals["items"]:
         raise HTTPException(status_code=400, detail="Cart is empty")
     now = datetime.now(timezone.utc).isoformat()
-    doc = {"id": str(uuid.uuid4()), "order_no": order_number(), "user_id": str(user["_id"]),
+    doc = {"id": str(uuid.uuid4()), "order_no": order_number(), "user_id": str(user["_id"]) if user else None,
            "email": body.address.email, "address": body.address.model_dump(),
            "payment_method": body.payment_method, "payment_status": payment_status,
            "status": status, "created_at": now,
@@ -480,7 +487,7 @@ async def mark_order_paid(order: dict, payment_id: str) -> dict:
 
 
 @api.post("/orders")
-async def create_order(body: OrderIn, user: dict = Depends(get_current_user)):
+async def create_order(body: OrderIn, user: Optional[dict] = Depends(get_optional_user)):
     if body.payment_method != "cod":
         raise HTTPException(status_code=400, detail="Use the Razorpay flow for online payments")
     doc = await build_order(user, body, payment_status="pending", status="pending")
@@ -497,7 +504,7 @@ async def payment_config():
 
 
 @api.post("/payments/razorpay/order")
-async def razorpay_create_order(body: OrderIn, user: dict = Depends(get_current_user)):
+async def razorpay_create_order(body: OrderIn, user: Optional[dict] = Depends(get_optional_user)):
     client_rz = razorpay_client()
     body.payment_method = "online"
     doc = await build_order(user, body, payment_status="pending", status="awaiting_payment")
@@ -528,13 +535,20 @@ class VerifyIn(BaseModel):
 
 
 @api.post("/payments/razorpay/verify")
-async def razorpay_verify(body: VerifyIn, user: dict = Depends(get_current_user)):
+async def razorpay_verify(body: VerifyIn, user: Optional[dict] = Depends(get_optional_user)):
     client_rz = razorpay_client()
-    order = await db.orders.find_one({"id": body.order_id, "user_id": str(user["_id"])}, {"_id": 0})
+
+    order = await db.orders.find_one({"id": body.order_id}, {"_id": 0})
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    if user and order.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=404, detail="Order not found")
+
     if order.get("razorpay_order_id") != body.razorpay_order_id:
         raise HTTPException(status_code=400, detail="Payment does not match this order")
+
     try:
         client_rz.utility.verify_payment_signature({
             "razorpay_order_id": body.razorpay_order_id,
@@ -542,10 +556,15 @@ async def razorpay_verify(body: VerifyIn, user: dict = Depends(get_current_user)
             "razorpay_signature": body.razorpay_signature,
         })
     except Exception:
-        await db.orders.update_one({"id": order["id"]}, {"$set": {"payment_status": "failed"}})
+        await db.orders.update_one(
+            {"id": order["id"]},
+            {"$set": {"payment_status": "failed"}}
+        )
         raise HTTPException(status_code=400, detail="Payment verification failed")
+
     if order["payment_status"] == "paid":
         return order
+
     return await mark_order_paid(order, body.razorpay_payment_id)
 
 
