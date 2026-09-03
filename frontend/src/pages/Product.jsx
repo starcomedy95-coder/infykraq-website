@@ -9,9 +9,6 @@ import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
-import { Pagination } from "swiper/modules";
 
 export default function Product() {
   const { id } = useParams();
@@ -86,23 +83,11 @@ export default function Product() {
         {/* gallery */}
 <div className="lg:sticky lg:top-32 lg:self-start">
   <div className="relative">
-    <Swiper
-      spaceBetween={10}
-      slidesPerView={1}
-      onSlideChange={(swiper) => setActive(swiper.activeIndex)}
-      className="w-full aspect-square rounded-md overflow-hidden border border-border bg-card"
-    >
-      {(p.images || []).map((src, i) => (
-        <SwiperSlide key={src}>
-          <img
-            src={src}
-            alt={`${p.title} ${i + 1}`}
-            className="w-full h-full object-cover"
-          />
-        </SwiperSlide>
-        
-      ))}
-    </Swiper>
+   <img
+  src={p.images?.[0]}
+  alt={p.title}
+  className="w-full aspect-square object-cover rounded-md border border-border bg-card"
+/>
 
     {/* Share button */}
     <button
