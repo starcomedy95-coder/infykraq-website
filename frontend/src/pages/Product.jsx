@@ -12,7 +12,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import { Pagination } from "swiper/modules";
-import "swiper/css/pagination";
 
 export default function Product() {
   const { id } = useParams();
@@ -90,8 +89,6 @@ export default function Product() {
     <Swiper
       spaceBetween={10}
       slidesPerView={1}
-      pagination={{ clickable: true }}
-      modules={[Pagination]}
       onSlideChange={(swiper) => setActive(swiper.activeIndex)}
       className="w-full aspect-square rounded-md overflow-hidden border border-border bg-card"
     >
@@ -103,6 +100,7 @@ export default function Product() {
             className="w-full h-full object-cover"
           />
         </SwiperSlide>
+        
       ))}
     </Swiper>
 
