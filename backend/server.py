@@ -87,10 +87,12 @@ async def user_from_session_token(token: str) -> Optional[dict]:
 
 async def get_current_user(request: Request) -> dict:
     session_token = request.cookies.get("session_token")
+
     if not session_token:
         header = request.headers.get("Authorization", "")
         if header.startswith("Bearer ") and header[7:].startswith("emg_"):
             session_token = header[7:]
+
     if session_token:
         user = await user_from_session_token(session_token)
         if user:
@@ -98,29 +100,41 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid session")
 
     token = request.cookies.get("access_token")
+
     if not token:
         header = request.headers.get("Authorization", "")
         if header.startswith("Bearer "):
             token = header[7:]
+
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
     try:
-        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            os.environ["JWT_SECRET"],
+            algorithms=[JWT_ALGORITHM]
+        )
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
     user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return user
-async def get_optional_user(request: Request) -> Optional[dict]:
-    if not request.cookies.get("session_token") and not request.cookies.get("access_token"):
-        header = request.headers.get("Authorization", "")
-        if not header.startswith("Bearer "):
-            return None
 
-    return await get_current_user(request)
+    return user
+
+
+async def get_optional_user(request: Request) -> Optional[dict]:
+    try:
+        return await get_current_user(request)
+    except HTTPException as e:
+        if e.status_code == 401:
+            return None
+        raise
 
 
 async def get_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -569,10 +583,17 @@ async def razorpay_verify(body: VerifyIn, user: Optional[dict] = Depends(get_opt
 
 
 @api.post("/payments/razorpay/cancel/{order_id}")
-async def razorpay_cancel(order_id: str, user: dict = Depends(get_current_user)):
+async def razorpay_cancel(order_id: str, user: Optional[dict] = Depends(get_optional_user)):
+    q = {"id": order_id, "payment_status": "pending"}
+
+    if user:
+        q["user_id"] = str(user["_id"])
+
     await db.orders.update_one(
-        {"id": order_id, "user_id": str(user["_id"]), "payment_status": "pending"},
-        {"$set": {"payment_status": "cancelled", "status": "cancelled"}})
+        q,
+        {"$set": {"payment_status": "cancelled", "status": "cancelled"}}
+    )
+
     return {"ok": True}
 
 
