@@ -58,7 +58,6 @@ export default function Checkout() {
 
   const placeOrder = async (e) => {
     e.preventDefault();
-    if (!user) { toast.error("Please login to place your order"); return nav("/login?next=/checkout"); }
     setBusy(true);
     const body = { items: payload, address: form, coupon_code: coupon || null, payment_method: method };
     try {

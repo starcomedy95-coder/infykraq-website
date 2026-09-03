@@ -84,7 +84,7 @@ export default function Product() {
 <div className="lg:sticky lg:top-32 lg:self-start">
   <div className="relative">
    <img
-  src={p.images?.[0]}
+  src={p.images?.[active]}
   alt={p.title}
   className="w-full aspect-square object-cover rounded-md border border-border bg-card"
 />
